@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AlphaCoin Wallet</title>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.3.7/dist/web3.min.js"></script>
+</head>
+<body>
+    <h1>AlphaCoin Wallet</h1>
+
+    <button onclick="connectWallet()">Connect Wallet</button>
+
+    <h2>Account Info</h2>
+    <p>Connected Account: <span id="account"></span></p>
+    <p>Balance: <span id="balance"></span> ATK</p>
+
+    <h2>Transfer Tokens</h2>
+    <label for="toAddress">To Address:</label>
+    <input type="text" id="toAddress">
+    <label for="amount">Amount:</label>
+    <input type="number" id="amount">
+    <button onclick="transfer()">Transfer</button>
+
+    <h2>Allowance</h2>
+    <label for="spender">Spender Address:</label>
+    <input type="text" id="spender">
+    <label for="allowanceAmount">Allowance Amount:</label>
+    <input type="number" id="allowanceAmount">
+    <button onclick="approve()">Approve</button>
+
+    <script>
+        let web3;
+        let contract;
+
+        async function init() {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                try {
+                    await window.ethereum.enable();
+                    const accounts = await web3.eth.getAccounts();
+                    document.getElementById("account").innerText = accounts[0];
+                    initContract();
+                } catch (error) {
+                    console.error("User denied account access");
+                }
+            } else if (window.web3) {
+                web3 = new Web3(window.web3.currentProvider);
+                const accounts = await web3.eth.getAccounts();
+                document.getElementById("account").innerText = accounts[0];
+                initContract();
+            } else {
+                console.error("No Ethereum browser extension detected");
+            }
+        }
+
+        function initContract() {
+            const address = "YOUR_CONTRACT_ADDRESS"; // Replace with your contract address
+            const abi = [ [
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "tokenOwner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "tokens",
+				"type": "uint256"
+			}
+		],
+		"name": "Approval",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "tokens",
+				"type": "uint256"
+			}
+		],
+		"name": "Transfer",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "tokenOwner",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			}
+		],
+		"name": "allowance",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "remaining",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "tokenOwner",
+				"type": "address"
+			}
+		],
+		"name": "balanceOf",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "balance",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "totalSupply",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokens",
+				"type": "uint256"
+			}
+		],
+		"name": "transfer",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "success",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokens",
+				"type": "uint256"
+			}
+		],
+		"name": "transferFrom",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "success",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+]
+            ];
+            contract = new web3.eth.Contract(abi, address);
+            updateBalance();
+        }
+
+        async function updateBalance() {
+            const account = document.getElementById("account").innerText;
+            const balance = await contract.methods.balanceOf(account).call();
+            document.getElementById("balance").innerText = balance;
+        }
+
+        async function transfer() {
+            const toAddress = document.getElementById("toAddress").value;
+            const amount = document.getElementById("amount").value;
+            await contract.methods.transfer(toAddress, amount).send({ from: web3.eth.defaultAccount });
+            updateBalance();
+        }
+
+        async function approve() {
+            const spender = document.getElementById("spender").value;
+            const amount = document.getElementById("allowanceAmount").value;
+            await contract.methods.approve(spender, amount).send({ from: web3.eth.defaultAccount });
+        }
+
+        async function connectWallet() {
+            await init();
+        }
+
+        window.addEventListener('load', async () => {
+            await init();
+        });
+    </script>
+</body>
+</html>
